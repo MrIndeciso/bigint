@@ -50,6 +50,12 @@ void bigint_alloc(struct bigint_t *val, size_t size)
     val->num = malloc( val->arr_count * sizeof(uint8_t));
 }
 
+void bigint_zero_out(struct bigint_t *val)
+{
+    for (size_t i = 0; i < val->arr_count; i++)
+        val->num[i] = 0;
+}
+
 void bigint_grow(struct bigint_t *val, size_t size)
 {
     val->size = size;
@@ -59,8 +65,15 @@ void bigint_grow(struct bigint_t *val, size_t size)
 
 void bigint_shrink(struct bigint_t *val, size_t size)
 {
-    bigint_grow(val, size);
-    val->num[val->arr_count - 1] &= ((2 << (size % 8)) - 1);
+    if (val->size == size)
+        return;
+    val->size = size;
+    val->arr_count = ((size / 8) + (size % 8 != 0));
+    uint8_t *new_num = malloc(val->arr_count * sizeof(uint8_t));
+    memccpy(new_num, val->num, (int)val->arr_count, sizeof(uint8_t));
+    free(val->num);
+    val->num = new_num;
+    val->num[val->arr_count - 1] &= ((2 << (size % 8) ? (size % 8) : 8) - 1);
 }
 
 static inline
@@ -195,6 +208,16 @@ void bigint_auto_shrink(struct bigint_t *val)
 {
     size_t new_len = bigint_effective_len(val);
     bigint_shrink(val, new_len);
+}
+
+int bigint_is_zero(const struct bigint_t *val)
+{
+    return (bigint_effective_len(val) == 0);
+}
+
+int bigint_is_one(const struct bigint_t *val)
+{
+    return (bigint_effective_len(val) == 1);
 }
 
 int bigint_cmp(const struct bigint_t *v1, const struct bigint_t *v2)
@@ -348,7 +371,33 @@ void bigint_sub(struct bigint_t *v1, const struct bigint_t *v2)
 
 void bigint_mul(struct bigint_t *v1, const struct bigint_t *v2)
 {
+    if (bigint_is_one(v2))
+        return;
 
+    if (bigint_is_zero(v2)) {
+        bigint_clean(v1);
+        bigint_from_bin(v1, "0");
+        return;
+    }
+
+    struct bigint_t *b = bigint_init();
+    struct bigint_t *q = bigint_init();
+    bigint_clone(b, v1);
+    bigint_clone(q, v2);
+
+    bigint_zero_out(v1);
+
+    for (size_t i = 0; i < q->size; i++) {
+        if (get_bit_at(q, 0) == 1)
+            bigint_add(v1, b);
+        bigint_shr_small(q, 1);
+        bigint_shl_small(b, 1);
+    }
+
+    bigint_auto_shrink(v1);
+
+    bigint_free(b);
+    bigint_free(q);
 }
 
 void bigint_div(struct bigint_t *num, const struct bigint_t *div)
@@ -361,7 +410,35 @@ void bigint_pow(struct bigint_t *base, const struct bigint_t *exp)
 
 }
 
-void bigint_modpow(struct bigint_t *base, const struct bigint_t *exp, const struct bigint_t *mod)
+static inline
+void bigint_intpow(struct bigint_t *base, int exp)
 {
 
+}
+
+void bigint_modpow(struct bigint_t *base, const struct bigint_t *exp, const struct bigint_t *mod)
+{
+    if (bigint_is_one(exp))
+        return;
+
+    if (bigint_is_zero(exp)) {
+        bigint_clean(base);
+        bigint_from_bin(base, "1");
+        return;
+    }
+
+    struct bigint_t *b = bigint_init();
+    struct bigint_t *e = bigint_init();
+    bigint_clone(b, base);
+    bigint_clone(e, exp);
+
+    bigint_zero_out(base);
+    set_bit_at(base, 0, 1);
+
+    for (ssize_t i = (ssize_t)e->size - 1; i >=0; i--) {
+
+    }
+
+    bigint_free(b);
+    bigint_free(e);
 }

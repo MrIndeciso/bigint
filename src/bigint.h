@@ -29,6 +29,11 @@ void bigint_from_hex(struct bigint_t*, char*);
 void bigint_dump_bin(const struct bigint_t*);
 void bigint_dump_hex(const struct bigint_t*);
 
+  /* Utils */
+void bigint_zero_out(struct bigint_t*);
+int bigint_is_zero(const struct bigint_t*);
+int bigint_is_one(const struct bigint_t*);
+
   /* Math stuff? */
 int bigint_eq(const struct bigint_t*, const struct bigint_t*);
 int bigint_cmp(const struct bigint_t*, const struct bigint_t*);
@@ -39,7 +44,7 @@ void bigint_shr(struct bigint_t*, int);
 void bigint_add(struct bigint_t*, const struct bigint_t*);
 void bigint_sub(struct bigint_t*, const struct bigint_t*);
 void bigint_mul(struct bigint_t*, const struct bigint_t*);
-void bigint_long_mul(struct bigint_t*, struct bigint_t*);
+void bigint_long_mul(struct bigint_t*, const struct bigint_t*);
 void bigint_div(struct bigint_t*, const struct bigint_t*);
 void bigint_pow(struct bigint_t*, const struct bigint_t*);
 
