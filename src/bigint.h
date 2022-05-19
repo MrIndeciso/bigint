@@ -33,6 +33,7 @@ void bigint_clone(struct bigint_t*, struct bigint_t*);
 void bigint_mod(struct bigint_t*, struct bigint_t*);
 void bigint_shl(struct bigint_t*, int);
 void bigint_shr(struct bigint_t*, int);
+void bigint_twos_complement(struct bigint_t*);
 void bigint_add(struct bigint_t*, struct bigint_t*);
 void bigint_sub(struct bigint_t*, struct bigint_t*);
 void bigint_mul(struct bigint_t*, struct bigint_t*);

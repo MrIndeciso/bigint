@@ -245,12 +245,25 @@ void bigint_shl(struct bigint_t *val, int bits)
 
 void bigint_shr(struct bigint_t *val, int bits)
 {
-    while (bits > 8) { ////TODO we dont need to do this, just grow the array and then memmove
+    while (bits > 8) { ////TODO we dont need to do this, just memmove the array into oblivion
         bigint_shr_small(val, 8);
         bits -= 8;
     }
 
     bigint_shr_small(val, bits);
+}
+
+void bigint_twos_complement(struct bigint_t *val)
+{
+    size_t i = 0;
+
+    while (get_bit_at(val, i) == 0)
+        ++i;
+
+    ++i;
+
+    for (; i < val->size; i++)
+        set_bit_at(val, i, !get_bit_at(val, i));
 }
 
 void bigint_add(struct bigint_t *v1, struct bigint_t *v2)
@@ -271,7 +284,23 @@ void bigint_add(struct bigint_t *v1, struct bigint_t *v2)
 
 void bigint_sub(struct bigint_t *v1, struct bigint_t *v2)
 {
+    bigint_grow(v2, max(v1->size, v2->size) + 1);
 
+    bigint_twos_complement(v2);
+
+    if (v1->size < v2->size)
+        bigint_grow(v1, v2->size);
+
+    uint16_t overflow = 0, res;
+    size_t i;
+
+    for (i = 0; i < v2->arr_count; i++) {
+        res = (uint16_t)v1->num[i] + (uint16_t)v2->num[i] + overflow;
+        v1->num[i] = (uint8_t)(res & 0xff);
+        overflow = res >> 8;
+    }
+
+    v1->num[min(i, v1->arr_count - 1)] += (uint8_t)overflow;
 }
 
 void bigint_mul(struct bigint_t *v1, struct bigint_t *v2)
