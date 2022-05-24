@@ -9,7 +9,7 @@ add_executable(
         src/bigint.c
         src/util.h
         src/util.c
-)
+        src/bigint_const.h)
 
 add_compile_options(-Wall -Wextra)
 

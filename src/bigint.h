@@ -4,10 +4,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
+typedef uint64_t bigint_base_t;
+#define BASE_T_SIZE (8 * sizeof(bigint_base_t))
+
 struct bigint_t {
   size_t size;
   size_t arr_count;
-  uint8_t* num;
+  bigint_base_t* num;
 };
 
 #ifdef TYPEDEF_BIGINT
