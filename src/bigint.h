@@ -25,6 +25,7 @@ void bigint_alloc(struct bigint_t*, size_t);
 void bigint_grow(struct bigint_t*, size_t);
 void bigint_shrink(struct bigint_t*, size_t);
 void bigint_auto_shrink(struct bigint_t*);
+void bigint_free_all(void);
 
 void bigint_from_bin(struct bigint_t*, char*);
 void bigint_from_hex(struct bigint_t*, char*);
@@ -48,7 +49,7 @@ void bigint_add(struct bigint_t*, const struct bigint_t*);
 void bigint_sub(struct bigint_t*, const struct bigint_t*);
 void bigint_mul(struct bigint_t*, const struct bigint_t*);
 void bigint_long_mul(struct bigint_t*, const struct bigint_t*);
-void bigint_div(struct bigint_t*, const struct bigint_t*);
+void bigint_div(struct bigint_t*, const struct bigint_t*, struct bigint_t*);
 void bigint_pow(struct bigint_t*, const struct bigint_t*);
 
   /* Modular math stuff? */

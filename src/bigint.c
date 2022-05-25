@@ -12,6 +12,17 @@
 #define min(A, B) ((A > B) ? B : A)
 #define max(A, B) ((A > B) ? A : B)
 
+static struct bigint_t* bigint_one = &(struct bigint_t) {
+    .num = & (bigint_base_t) { 1 },
+    .size = 1,
+    .arr_count = 1
+};
+static struct bigint_t* bigint_zero = &(struct bigint_t) {
+        .num = & (bigint_base_t) { 0 },
+        .size = 1,
+        .arr_count = 1
+};
+
 struct bigint_t* bigint_init(void)
 {
     struct bigint_t* val = malloc(sizeof(struct bigint_t));
@@ -49,13 +60,19 @@ void bigint_alloc(struct bigint_t *val, size_t size)
 
     val->size = size;
     val->arr_count = ((size / BASE_T_SIZE) + (size % BASE_T_SIZE != 0));
-    val->num = malloc( val->arr_count * sizeof(bigint_base_t));
+    val->num = calloc(val->arr_count, sizeof(bigint_base_t));
 }
 
 void bigint_zero_out(struct bigint_t *val)
 {
-    for (size_t i = 0; i < val->arr_count; i++)
-        val->num[i] = 0;
+    if (val->num == NULL) {
+        val->size = 1;
+        val->arr_count = 1;
+        val->num = calloc(1, sizeof(bigint_base_t));
+        val->num[0] = 0;
+    } else
+        for (size_t i = 0; i < val->arr_count; i++)
+            val->num[i] = 0;
 }
 
 void bigint_grow(struct bigint_t *val, size_t size)
@@ -69,16 +86,18 @@ void bigint_shrink(struct bigint_t *val, size_t size)
 {
     if (val->size == size)
         return;
+    if (size <= 0)
+        size = 1;
     val->size = size;
     val->arr_count = ((size / BASE_T_SIZE) + (size % BASE_T_SIZE != 0));
-    bigint_base_t *new_num = malloc(val->arr_count * sizeof(bigint_base_t));
+    bigint_base_t *new_num = calloc(val->arr_count, sizeof(bigint_base_t));
     memcpy(new_num, val->num, val->arr_count * sizeof(bigint_base_t));
     free(val->num);
     val->num = new_num;
-    bigint_base_t mask = 2;
-    mask <<= 64 - (size % BASE_T_SIZE) ? (size % BASE_T_SIZE) : BASE_T_SIZE;
-    mask -= 1;
-    val->num[val->arr_count - 1] &= mask;
+    if (size % BASE_T_SIZE) {
+        val->num[val->arr_count - 1] <<= (64 - size % BASE_T_SIZE);
+        val->num[val->arr_count - 1] >>= (64 - size % BASE_T_SIZE);
+    }
 }
 
 static inline
@@ -283,36 +302,31 @@ void bigint_shl_small(struct bigint_t *val, uint8_t bits)
 static
 void bigint_shr_small(struct bigint_t *val, uint8_t bits)
 {
-    uint8_t underflow = 0, temp;
+    bigint_base_t underflow = 0, temp;
 
     for (ssize_t i = (ssize_t)val->arr_count - 1; i >= 0; i--) {
-        temp = val->num[i] & ((2 << bits) - 1);
+        temp = val->num[i] & (((bigint_base_t)2 << bits) - (bigint_base_t)1);
         val->num[i] >>= bits;
         val->num[i] += underflow;
-        underflow = temp << (sizeof(bigint_base_t) - bits);
+        underflow = temp << (BASE_T_SIZE - bits);
     }
 }
 
 void bigint_shl(struct bigint_t *val, int bits)
 {
-    if (bits > BASE_T_SIZE) {
-        size_t count = bits / BASE_T_SIZE;
-        size_t old_size = val->arr_count;
-        bigint_grow(val, val->size + count * BASE_T_SIZE);
-        memmove(val->num + count, val->num, old_size);
-        memset(val->num, 0, count);
+    while (bits > BASE_T_SIZE) {
+        bigint_shl_small(val, BASE_T_SIZE/2);
+        bits -= BASE_T_SIZE/2;
     }
-
-    bits %= BASE_T_SIZE;
 
     bigint_shl_small(val, bits);
 }
 
 void bigint_shr(struct bigint_t *val, int bits)
 {
-    while (bits > sizeof(bigint_base_t)) { ////TODO we dont need to do this, just memmove the array into oblivion
-        bigint_shr_small(val, sizeof(bigint_base_t));
-        bits -= sizeof(bigint_base_t);
+    while (bits > BASE_T_SIZE) { ////TODO we dont need to do this, just memmove the array into oblivion
+        bigint_shr_small(val, BASE_T_SIZE/2);
+        bits -= BASE_T_SIZE/2;
     }
 
     bigint_shr_small(val, bits);
@@ -404,9 +418,40 @@ void bigint_mul(struct bigint_t *v1, const struct bigint_t *v2)
     bigint_free(q);
 }
 
-void bigint_div(struct bigint_t *num, const struct bigint_t *div)
+void bigint_div(struct bigint_t *num, const struct bigint_t *div, struct bigint_t *res)
 {
+    bigint_zero_out(res);
 
+    int cmp = bigint_cmp(num, div);
+
+    if (cmp == -1)
+        return;
+    else if (cmp == 0) {
+        bigint_clean(res);
+        bigint_clone(res, bigint_one);
+        return;
+    }
+
+    struct bigint_t *temp_div = bigint_init();
+    bigint_clone(temp_div, div);
+
+    size_t bit_len_diff = bigint_effective_len(num) - bigint_effective_len(div);
+
+    bigint_shl(temp_div, (int) bit_len_diff);
+
+    for (size_t i = 0; i <= bit_len_diff; i++) {
+        printf("num: %lu; temp_div: %lu\n", num->num[0], temp_div->num[0]);
+        if (bigint_cmp(num, temp_div) >= 0) {
+            bigint_sub(num, temp_div);
+            bigint_add(res, bigint_one);
+        }
+        bigint_shl(res, 1);
+        bigint_shr(temp_div, 1);
+    }
+
+    bigint_shr(res, 1);
+
+    bigint_free(temp_div);
 }
 
 void bigint_pow(struct bigint_t *base, const struct bigint_t *exp)
